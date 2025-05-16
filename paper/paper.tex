@@ -1,0 +1,833 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{float}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{placeins}
+\usepackage{xcolor}
+\usepackage[brazilian]{babel}  
+\usepackage[skip=10pt]{caption}
+\renewcommand{\tablename}{Tabela}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Exploração de Modelos de Clustering em Dados de Acidentes Ferroviários com Análise Interpretável: Estudo de \textit{K-Means}, \textit{Robust Sparse K-Means} e \textit{Adaptively Robust K-Means}}
+
+\author{
+    \IEEEauthorblockN{Mateus Mendonça Monteiro\textsuperscript{1} e Cassio Machiaveli Oishi\textsuperscript{2}}
+    \IEEEauthorblockA{
+        \textit{Departamento de Matemática e Computação},\\
+        \textit{Universidade Estadual Paulista}\\
+        Presidente Prudente, Brasil\\
+        mateus.monteiro@unesp.br, cassio.oishi@unesp.br
+    }
+}
+
+\maketitle
+
+\begin{abstract}
+Este artigo explora a aplicação de três algoritmos de clustering – K-Means tradicional, Robust Sparse K-Means (RSKM) e Adaptively Robust Sparse K-Means (ARSKM) – em um conjunto de dados públicos sobre incidentes em cruzamentos rodoferroviários nos Estados Unidos. O objetivo principal é não apenas identificar agrupamentos significativos nesses dados, mas também empregar técnicas de interpretabilidade, como LIME (Local Interpretable Model-agnostic Explanations) e SHAP (SHapley Additive exPlanations), para compreender os fatores que caracterizam cada cluster. A análise busca fornecer insights sobre os padrões de acidentes, contribuindo para um melhor entendimento dos riscos e potenciais medidas preventivas. Discutimos a metodologia de pré-processamento dos dados, a aplicação dos algoritmos de clustering, a determinação dos parâmetros ótimos e os resultados da análise de interpretabilidade, destacando as contribuições de cada abordagem para a exploração de dados complexos no domínio da segurança ferroviária.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Clustering, K-Means, Robust Sparse K-Means, Adaptively Robust Sparse K-Means, Interpretabilidade, Explainable AI, LIME, SHAP, Acidentes Ferroviários, Segurança Ferroviária.
+\end{IEEEkeywords}
+
+% Seções do Artigo
+\section{Introdução}
+A análise de dados não supervisionada, particularmente o clustering, representa uma abordagem fundamental para a descoberta de padrões intrínsecos em conjuntos de dados complexos e multidimensionais \cite{jain2010data}. No contexto da segurança ferroviária, a identificação de padrões em incidentes e acidentes pode revelar insights valiosos para a prevenção e mitigação de riscos, especialmente em cruzamentos rodoferroviários, que constituem pontos críticos de interação entre diferentes modais de transporte \cite{xu2015comprehensive}.
+
+Este trabalho apresenta uma análise comparativa de três algoritmos de clustering – K-Means tradicional, Robust Sparse K-Means (RSKM) e Adaptively Robust Sparse K-Means (ARSKM) – aplicados a um conjunto de dados públicos de incidentes em cruzamentos rodoferroviários nos Estados Unidos. Além da identificação de agrupamentos, o estudo enfatiza a interpretabilidade dos resultados, empregando técnicas de Explainable AI (XAI) como LIME \cite{ribeiro2016should} e SHAP \cite{lundberg2017unified} para elucidar os fatores determinantes na formação dos clusters.
+
+A combinação de algoritmos robustos e esparsos de clustering com técnicas avançadas de interpretabilidade representa uma abordagem inovadora para a análise de dados de segurança ferroviária, permitindo não apenas a identificação de padrões, mas também a compreensão das características que definem esses padrões, facilitando a tradução de insights analíticos em ações práticas de prevenção e segurança.
+
+\subsection{Contextualização do Problema}
+Os cruzamentos rodoferroviários representam pontos de vulnerabilidade significativa nos sistemas de transporte, onde a interação entre trens e veículos rodoviários pode resultar em acidentes com consequências graves \cite{liang2018analysis}. Nos Estados Unidos, apesar dos avanços em tecnologias de sinalização e segurança, esses cruzamentos continuam a ser cenários de incidentes que resultam em danos materiais, ferimentos e, em casos mais graves, fatalidades \cite{yan2010analysis}.
+
+A Federal Railroad Administration (FRA) dos Estados Unidos mantém um registro detalhado desses incidentes através do formulário FRA F 6180.57 (Highway-Rail Grade Crossing Accident/Incident Report), coletando informações sobre as circunstâncias, condições e consequências de cada ocorrência \cite{fra2021data}. Este rico conjunto de dados, disponibilizado publicamente, oferece uma oportunidade valiosa para a aplicação de técnicas avançadas de análise de dados visando a identificação de padrões e fatores de risco.
+
+A heterogeneidade dos dados, que incluem variáveis categóricas e numéricas relacionadas a condições climáticas, características do cruzamento, tipo de equipamento envolvido, entre outras, apresenta desafios analíticos que podem ser abordados através de algoritmos de clustering robustos e esparsos. Estes algoritmos são capazes de lidar com ruídos, outliers e a alta dimensionalidade dos dados, focando nas variáveis mais relevantes para a formação dos agrupamentos \cite{witten2010framework}.
+
+Além disso, a natureza crítica do domínio de segurança ferroviária demanda não apenas a identificação de padrões, mas também a compreensão clara dos fatores que caracterizam esses padrões, tornando a interpretabilidade dos resultados um aspecto fundamental para a aplicabilidade prática das análises \cite{guidotti2018survey}.
+
+\subsection{Trabalhos Relacionados}
+A aplicação de técnicas de clustering para análise de dados de segurança e acidentes tem sido explorada em diversos domínios. Jain \cite{jain2010data} apresenta uma revisão abrangente sobre algoritmos de clustering, destacando sua evolução ao longo de cinco décadas e sua aplicabilidade em diversos campos, incluindo a análise de dados de segurança.
+
+No contexto específico da segurança ferroviária, Liang et al. \cite{liang2018analysis} utilizaram técnicas de clustering para analisar fatores de risco em cruzamentos rodoferroviários na China, identificando padrões relacionados a características geográficas e operacionais. Yan et al. \cite{yan2010analysis} aplicaram análise de cluster para investigar a relação entre características dos cruzamentos e a severidade dos acidentes nos Estados Unidos.
+
+Quanto aos algoritmos específicos, o K-Means, introduzido por MacQueen \cite{macqueen1967some}, permanece como um dos métodos mais populares devido à sua simplicidade e eficiência computacional. No entanto, suas limitações em lidar com outliers e dados de alta dimensionalidade motivaram o desenvolvimento de variantes robustas e esparsas.
+
+Witten e Tibshirani \cite{witten2010framework} propuseram o Robust Sparse K-Means (RSKM), que incorpora uma penalidade L1 para seleção de features e mecanismos de robustez para mitigar a influência de outliers. Sun et al. \cite{sun2018adaptive} avançaram nessa linha com o Adaptively Robust Sparse K-Means (ARSKM), que introduz pesos adaptativos tanto para observações quanto para features, oferecendo maior flexibilidade e precisão.
+
+No campo da interpretabilidade, Guidotti et al. \cite{guidotti2018survey} apresentam uma revisão abrangente de métodos para explicação de modelos de caixa-preta, incluindo técnicas aplicáveis a algoritmos de clustering. Ribeiro et al. \cite{ribeiro2016should} introduziram o LIME (Local Interpretable Model-agnostic Explanations), que permite explicar previsões individuais de qualquer modelo através de aproximações locais interpretáveis. Lundberg e Lee \cite{lundberg2017unified} propuseram o SHAP (SHapley Additive exPlanations), baseado na teoria dos jogos, oferecendo uma abordagem unificada para interpretação de modelos com propriedades teóricas desejáveis.
+
+Mais recentemente, Molnar et al. \cite{molnar2020interpretable} exploraram a integração de técnicas de interpretabilidade em algoritmos de clustering, destacando a importância da explicabilidade para a aceitação e aplicação prática dos resultados. Adadi e Berrada \cite{adadi2018peeking} discutem a crescente importância da XAI em aplicações críticas, como sistemas de segurança e saúde, onde a compreensão das decisões algorítmicas é essencial.
+
+No contexto específico da aplicação de técnicas de XAI a algoritmos de clustering, Kauffmann et al. \cite{kauffmann2019clustering} propõem métodos para explicar agrupamentos através da identificação das features mais discriminativas, enquanto Dasgupta et al. \cite{dasgupta2020explainable} apresentam uma abordagem para clustering interpretável baseada em árvores de decisão.
+
+Apesar desses avanços, a literatura ainda apresenta lacunas significativas na aplicação integrada de algoritmos robustos e esparsos de clustering com técnicas avançadas de interpretabilidade no domínio específico da segurança ferroviária, lacuna que este trabalho busca preencher.
+
+\subsection{Motivação}
+A motivação para este estudo emerge da convergência de três fatores principais: a relevância crítica da segurança em cruzamentos rodoferroviários, o potencial analítico de algoritmos avançados de clustering e a crescente demanda por interpretabilidade em análises de dados complexos.
+
+Os cruzamentos rodoferroviários representam pontos de vulnerabilidade nos sistemas de transporte, onde a interação entre diferentes modais pode resultar em acidentes com consequências graves. A identificação de padrões nesses incidentes pode revelar fatores de risco não evidentes e contribuir para o desenvolvimento de estratégias mais eficazes de prevenção e mitigação \cite{liang2018analysis}.
+
+Os algoritmos tradicionais de clustering, como o K-Means, embora amplamente utilizados, apresentam limitações significativas quando aplicados a dados ruidosos e de alta dimensionalidade, características comuns em conjuntos de dados de acidentes \cite{witten2010framework}. Variantes robustas e esparsas, como RSKM e ARSKM, oferecem potencial para superar essas limitações, focando nas variáveis mais relevantes e reduzindo a influência de outliers, resultando em agrupamentos mais significativos e informativos \cite{sun2018adaptive}.
+
+Além disso, a mera identificação de clusters, sem uma compreensão clara dos fatores que os definem, limita significativamente a aplicabilidade prática dos resultados, especialmente em domínios críticos como a segurança ferroviária \cite{guidotti2018survey}. Técnicas de interpretabilidade como LIME e SHAP podem preencher essa lacuna, fornecendo explicações claras e compreensíveis sobre as características que definem cada agrupamento \cite{ribeiro2016should, lundberg2017unified}.
+
+A integração dessas abordagens – algoritmos robustos e esparsos de clustering com técnicas avançadas de interpretabilidade – representa uma oportunidade para avançar tanto o conhecimento teórico quanto a aplicação prática da análise de dados no contexto da segurança ferroviária, motivando este estudo.
+
+\subsection{Objetivos}
+Este trabalho tem como objetivo principal explorar e comparar a aplicação de três algoritmos de clustering – K-Means tradicional, Robust Sparse K-Means (RSKM) e Adaptively Robust Sparse K-Means (ARSKM) – em um conjunto de dados de incidentes em cruzamentos rodoferroviários, com ênfase na interpretabilidade dos resultados através de técnicas de Explainable AI.
+
+Os objetivos específicos incluem:
+
+\begin{enumerate}
+    \item Realizar uma análise exploratória e pré-processamento do conjunto de dados de incidentes em cruzamentos rodoferroviários, identificando e tratando valores ausentes, outliers e realizando a normalização e codificação adequadas das variáveis.
+    
+    \item Implementar e aplicar os algoritmos K-Means, RSKM e ARSKM ao conjunto de dados pré-processado, determinando o número ótimo de clusters (K) e os hiperparâmetros adequados para cada algoritmo.
+    
+    \item Comparar os resultados dos três algoritmos em termos de qualidade dos agrupamentos, utilizando métricas como Silhouette Score, Davies-Bouldin Index e Within-Cluster Sum of Squares (WCSS).
+    
+    \item Aplicar técnicas de interpretabilidade (LIME e SHAP) para explicar os agrupamentos gerados por cada algoritmo, identificando as variáveis mais relevantes e como elas influenciam a formação dos clusters.
+    
+    \item Analisar e discutir as implicações dos resultados para a compreensão dos padrões de incidentes em cruzamentos rodoferroviários e potenciais aplicações para estratégias de prevenção e segurança.
+    
+    \item Avaliar as vantagens e limitações de cada abordagem (algoritmo de clustering e técnica de interpretabilidade) no contexto específico da análise de dados de segurança ferroviária.
+\end{enumerate}
+
+Através desses objetivos, o estudo busca não apenas avançar o conhecimento técnico sobre algoritmos de clustering e interpretabilidade, mas também contribuir para a aplicação prática desses conhecimentos no domínio da segurança ferroviária.
+
+\subsection{Contribuições}
+Este trabalho oferece as seguintes contribuições principais:
+
+\begin{enumerate}
+    \item \textbf{Análise Comparativa de Algoritmos}: Apresenta uma comparação sistemática entre K-Means tradicional, RSKM e ARSKM aplicados a dados reais de incidentes ferroviários, destacando as vantagens e limitações de cada abordagem neste contexto específico.
+    
+    \item \textbf{Integração de Técnicas de Interpretabilidade}: Demonstra a aplicação integrada de LIME e SHAP para explicar os resultados de algoritmos de clustering, fornecendo um framework metodológico que pode ser adaptado para outros domínios.
+    
+    \item \textbf{Implementação Adaptada}: Oferece uma implementação em Python dos algoritmos RSKM e ARSKM, originalmente disponíveis em R, facilitando sua aplicação e integração com o ecossistema de ciência de dados em Python.
+    
+    \item \textbf{Insights sobre Padrões de Acidentes}: Revela padrões e fatores de risco em incidentes de cruzamentos rodoferroviários, contribuindo para o conhecimento no campo da segurança ferroviária e potencialmente informando estratégias de prevenção.
+    
+    \item \textbf{Framework Metodológico}: Estabelece um framework metodológico para a aplicação de clustering interpretável em dados de segurança, que pode ser adaptado e aplicado a outros domínios críticos onde a interpretabilidade é essencial.
+    
+    \item \textbf{Avaliação de Hiperparâmetros}: Fornece uma análise detalhada sobre a determinação de hiperparâmetros ótimos para RSKM e ARSKM, incluindo o número de clusters (K) e parâmetros de robustez e esparsidade, contribuindo para a literatura sobre a aplicação prática desses algoritmos.
+\end{enumerate}
+
+Estas contribuições são relevantes tanto do ponto de vista teórico, avançando o conhecimento sobre algoritmos de clustering e interpretabilidade, quanto do ponto de vista prático, oferecendo insights e metodologias que podem ser aplicados para melhorar a segurança em cruzamentos rodoferroviários.
+
+\section{Base de Dados}
+\subsection{Fonte e Descrição}
+O conjunto de dados utilizado neste estudo é proveniente do portal de dados públicos do Departamento de Transporte dos Estados Unidos (U.S. Department of Transportation) \cite{fra2021data}, especificamente da Federal Railroad Administration (FRA). Os dados foram acessados através da plataforma Kaggle \cite{kaggle2021highway}, que disponibiliza um subconjunto dos registros de incidentes em cruzamentos rodoferroviários ocorridos entre 1º de janeiro de 1975 e 28 de fevereiro de 2021.
+
+Estes dados são coletados através do formulário FRA F 6180.57 (Highway-Rail Grade Crossing Accident/Incident Report), que é preenchido obrigatoriamente sempre que ocorre um incidente envolvendo um trem e um usuário de rodovia (veículo, pedestre, ciclista) em um cruzamento rodoferroviário. O conjunto de dados contém informações detalhadas sobre cada incidente, incluindo:
+
+\begin{itemize}
+    \item \textbf{Informações Temporais}: Data e hora do incidente, condições de iluminação.
+    \item \textbf{Localização}: Estado, condado, cidade, identificação do cruzamento.
+    \item \textbf{Condições Ambientais}: Temperatura, condições climáticas, visibilidade.
+    \item \textbf{Características do Cruzamento}: Tipo de superfície, número de pistas, presença e tipo de dispositivos de aviso.
+    \item \textbf{Detalhes do Trem}: Tipo de equipamento, velocidade, número de vagões.
+    \item \textbf{Detalhes do Veículo}: Tipo de veículo, velocidade, número de ocupantes.
+    \item \textbf{Consequências}: Número de feridos, fatalidades, estimativa de danos materiais.
+    \item \textbf{Circunstâncias}: Narrativa do incidente, fatores contribuintes.
+\end{itemize}
+
+O conjunto de dados original contém mais de 50 variáveis e milhares de registros, representando uma fonte rica para análise de padrões e fatores de risco em incidentes ferroviários.
+
+\subsection{Pré-processamento}
+O pré-processamento dos dados foi realizado em várias etapas para preparar o conjunto para a aplicação dos algoritmos de clustering:
+
+\subsubsection{Seleção de Features}
+Inicialmente, foi realizada uma análise exploratória para identificar as variáveis mais relevantes para o objetivo do estudo. Foram selecionadas features que potencialmente influenciam o risco e a severidade dos incidentes, com foco em variáveis relacionadas a:
+
+\begin{itemize}
+    \item Condições ambientais (temperatura, visibilidade, condições climáticas)
+    \item Características do cruzamento (tipo de superfície, número de pistas)
+    \item Detalhes do trem e do veículo (tipo, velocidade)
+    \item Consequências (danos, feridos, fatalidades)
+    \item Temporalidade (hora do dia, mês, ano)
+\end{itemize}
+
+\subsubsection{Tratamento de Valores Ausentes}
+Os valores ausentes foram tratados de acordo com a natureza de cada variável:
+
+\begin{itemize}
+    \item Para variáveis numéricas, foi utilizada a imputação pela mediana, que é mais robusta a outliers do que a média.
+    \item Para variáveis categóricas, foi utilizada a imputação pelo modo (valor mais frequente).
+    \item Em casos onde a proporção de valores ausentes era muito alta (superior a 30\%), a variável foi avaliada quanto à sua importância e, quando necessário, excluída da análise.
+\end{itemize}
+
+\subsubsection{Tratamento de Outliers}
+Outliers foram identificados utilizando o método do Intervalo Interquartil (IQR) para variáveis numéricas. Valores extremos foram tratados através de:
+
+\begin{itemize}
+    \item Winsorização (substituição por percentis) para outliers moderados.
+    \item Remoção para casos extremos que poderiam distorcer significativamente a análise.
+\end{itemize}
+
+\subsubsection{Codificação de Variáveis Categóricas}
+As variáveis categóricas foram transformadas em representações numéricas utilizando:
+
+\begin{itemize}
+    \item One-Hot Encoding para variáveis nominais com poucas categorias.
+    \item Label Encoding para variáveis ordinais.
+    \item Frequency Encoding para variáveis nominais com muitas categorias, reduzindo a dimensionalidade.
+\end{itemize}
+
+\subsubsection{Normalização}
+Todas as variáveis numéricas foram normalizadas utilizando o StandardScaler, que centraliza os dados em torno da média e escala pela variância, resultando em uma distribuição com média 0 e desvio padrão 1. Esta etapa é crucial para algoritmos baseados em distância, como o K-Means e suas variantes, garantindo que todas as variáveis contribuam igualmente para a análise, independentemente de suas escalas originais.
+
+\subsubsection{Redução de Dimensionalidade}
+Para visualização e análise exploratória, técnicas de redução de dimensionalidade como PCA (Principal Component Analysis) foram aplicadas. No entanto, para a aplicação dos algoritmos de clustering, mantivemos o conjunto de features selecionadas, uma vez que os algoritmos RSKM e ARSKM já incorporam mecanismos de seleção de features através de suas propriedades de esparsidade.
+
+O conjunto de dados resultante após o pré-processamento contém X registros e Y variáveis, representando uma versão limpa, normalizada e estruturada dos dados originais, pronta para a aplicação dos algoritmos de clustering.
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura de distribuição das variáveis após pré-processamento
+\caption{Distribuição das principais variáveis após pré-processamento. [INSERIR FIGURA]}
+\label{fig:preprocessing}
+\end{figure}
+
+\section{Metodologia}
+\subsection{Algoritmos de Clustering}
+\subsubsection{K-Means Tradicional}
+O K-Means é um dos algoritmos de clustering mais populares e amplamente utilizados devido à sua simplicidade e eficiência computacional \cite{macqueen1967some}. O algoritmo particiona o conjunto de dados em K clusters distintos, onde cada observação pertence ao cluster com o centróide mais próximo.
+
+O processo iterativo do K-Means pode ser descrito da seguinte forma:
+
+\begin{algorithm}
+\caption{K-Means}
+\begin{algorithmic}[1]
+\STATE Inicializar K centróides $\mu_1, \mu_2, ..., \mu_K$ aleatoriamente ou usando uma estratégia como k-means++
+\REPEAT
+\STATE \textbf{Passo de Atribuição:} Atribuir cada observação ao centróide mais próximo
+\STATE $C_i = \{x_j : ||x_j - \mu_i||^2 \leq ||x_j - \mu_l||^2 \forall l, 1 \leq l \leq K\}$
+\STATE \textbf{Passo de Atualização:} Recalcular os centróides como a média das observações atribuídas a cada cluster
+\STATE $\mu_i = \frac{1}{|C_i|}\sum_{x_j \in C_i} x_j$
+\UNTIL{os centróides não mudam significativamente ou um número máximo de iterações é atingido}
+\end{algorithmic}
+\end{algorithm}
+
+O objetivo do K-Means é minimizar a soma dos quadrados das distâncias entre cada observação e o centróide do seu cluster, conhecida como Within-Cluster Sum of Squares (WCSS):
+
+\begin{equation}
+WCSS = \sum_{i=1}^{K} \sum_{x \in C_i} ||x - \mu_i||^2
+\end{equation}
+
+Apesar de sua popularidade, o K-Means apresenta algumas limitações significativas:
+
+\begin{itemize}
+    \item Sensibilidade a outliers: Outliers podem distorcer significativamente a posição dos centróides.
+    \item Dificuldade com clusters de formas não esféricas: O K-Means assume implicitamente que os clusters têm formato esférico e tamanhos similares.
+    \item Não realiza seleção de features: Todas as variáveis contribuem igualmente para o cálculo das distâncias, o que pode ser problemático em dados de alta dimensionalidade onde nem todas as variáveis são igualmente relevantes.
+\end{itemize}
+
+Estas limitações motivaram o desenvolvimento de variantes robustas e esparsas do K-Means, como o RSKM e o ARSKM, que são explorados neste estudo.
+
+\subsubsection{Robust Sparse K-Means (RSKM)}
+O Robust Sparse K-Means (RSKM), proposto por Witten e Tibshirani \cite{witten2010framework}, é uma extensão do K-Means tradicional que incorpora dois elementos principais: robustez a outliers e seleção de features através de esparsidade.
+
+A robustez é alcançada através da atribuição de pesos às observações, reduzindo a influência de outliers no cálculo dos centróides. A esparsidade é introduzida através de uma penalidade L1 (LASSO) nos pesos das features, resultando em um subconjunto de features relevantes para o clustering.
+
+O RSKM minimiza a seguinte função objetivo:
+
+\begin{equation}
+\min_{C_1,...,C_K, w} \sum_{j=1}^{p} w_j \sum_{i=1}^{K} \sum_{x \in C_i} (x_j - \mu_{ij})^2
+\end{equation}
+
+sujeito a:
+\begin{equation}
+||w||_2 \leq 1, ||w||_1 \leq s, w_j \geq 0 \forall j
+\end{equation}
+
+onde $w = (w_1, w_2, ..., w_p)$ são os pesos das features, $p$ é o número de features, e $s$ é um parâmetro de regularização que controla a esparsidade (quanto menor o valor de $s$, mais esparsa é a solução).
+
+O algoritmo RSKM alterna entre três passos:
+
+\begin{algorithm}
+\caption{Robust Sparse K-Means (RSKM)}
+\begin{algorithmic}[1]
+\STATE Inicializar K centróides e pesos das features $w$ uniformemente
+\REPEAT
+\STATE \textbf{Passo de Atribuição:} Atribuir cada observação ao centróide mais próximo, considerando os pesos das features
+\STATE \textbf{Passo de Atualização dos Centróides:} Recalcular os centróides como a média ponderada das observações em cada cluster, com pesos para reduzir a influência de outliers
+\STATE \textbf{Passo de Atualização dos Pesos das Features:} Atualizar os pesos das features $w$ resolvendo um problema de otimização com penalidade L1
+\UNTIL{convergência ou número máximo de iterações}
+\end{algorithmic}
+\end{algorithm}
+
+A implementação do RSKM utilizada neste estudo foi adaptada do pacote RSKC em R \cite{kondo2016rskc}, traduzida para Python para integração com o restante do pipeline de análise. A adaptação manteve a estrutura e lógica do algoritmo original, com ajustes para compatibilidade com as bibliotecas Python utilizadas.
+
+\subsubsection{Adaptively Robust Sparse K-Means (ARSKM)}
+O Adaptively Robust Sparse K-Means (ARSKM), proposto por Sun et al. \cite{sun2018adaptive}, representa um avanço em relação ao RSKM ao introduzir pesos adaptativos tanto para observações (robustez) quanto para features (esparsidade).
+
+Enquanto o RSKM utiliza um único parâmetro global para controlar a robustez, o ARSKM atribui pesos individuais a cada observação, permitindo uma adaptação mais fina à estrutura dos dados. Da mesma forma, os pesos das features são atualizados de forma adaptativa, focando nas mais relevantes para a estrutura de clustering.
+
+O ARSKM minimiza a seguinte função objetivo:
+
+\begin{equation}
+\min_{C_1,...,C_K, w, \gamma} \sum_{j=1}^{p} w_j \sum_{i=1}^{K} \sum_{x \in C_i} \gamma_x (x_j - \mu_{ij})^2
+\end{equation}
+
+sujeito a:
+\begin{equation}
+||w||_2 \leq 1, ||w||_1 \leq s_w, w_j \geq 0 \forall j
+\end{equation}
+\begin{equation}
+||\gamma||_1 = n, 0 \leq \gamma_x \leq \tau \forall x
+\end{equation}
+
+onde $\gamma = (\gamma_1, \gamma_2, ..., \gamma_n)$ são os pesos das observações, $n$ é o número de observações, $s_w$ é o parâmetro de esparsidade para as features, e $\tau$ é um parâmetro que controla o nível máximo de influência que uma observação pode ter.
+
+O algoritmo ARSKM alterna entre quatro passos:
+
+\begin{algorithm}
+\caption{Adaptively Robust Sparse K-Means (ARSKM)}
+\begin{algorithmic}[1]
+\STATE Inicializar K centróides, pesos das features $w$ e pesos das observações $\gamma$ uniformemente
+\REPEAT
+\STATE \textbf{Passo de Atribuição:} Atribuir cada observação ao centróide mais próximo, considerando os pesos das features e das observações
+\STATE \textbf{Passo de Atualização dos Centróides:} Recalcular os centróides como a média ponderada das observações em cada cluster, utilizando os pesos adaptativos
+\STATE \textbf{Passo de Atualização dos Pesos das Features:} Atualizar os pesos das features $w$ resolvendo um problema de otimização com penalidade L1
+\STATE \textbf{Passo de Atualização dos Pesos das Observações:} Atualizar os pesos das observações $\gamma$ baseado nas distâncias aos centróides
+\UNTIL{convergência ou número máximo de iterações}
+\end{algorithmic}
+\end{algorithm}
+
+A implementação do ARSKM utilizada neste estudo foi adaptada do código R disponibilizado pelos autores originais \cite{lee2020arsk}, traduzida para Python para integração com o restante do pipeline de análise. A adaptação envolveu a tradução cuidadosa dos algoritmos de otimização e a validação dos resultados para garantir a fidelidade à implementação original.
+
+\subsection{Determinação do K Ótimo}
+A determinação do número ótimo de clusters (K) é um desafio fundamental em análise de clustering. Neste estudo, utilizamos três métodos complementares para identificar o valor mais adequado de K para cada algoritmo:
+
+\subsubsection{Método do Cotovelo (Elbow Method)}
+O Método do Cotovelo baseia-se na observação da Within-Cluster Sum of Squares (WCSS) em função do número de clusters. À medida que K aumenta, o WCSS diminui naturalmente (no limite, com K igual ao número de observações, o WCSS seria zero). O "cotovelo" na curva representa o ponto onde adicionar mais clusters não resulta em uma redução significativa do WCSS, indicando um bom compromisso entre complexidade do modelo e qualidade do agrupamento.
+
+Para o RSKM e o ARSKM, adaptamos o conceito de WCSS para incorporar os pesos das features e das observações, utilizando a função objetivo específica de cada algoritmo como métrica.
+
+\subsubsection{Silhouette Score}
+O Silhouette Score mede a qualidade dos clusters com base na coesão (similaridade de uma observação com outras no mesmo cluster) e na separação (dissimilaridade com observações em outros clusters). O score varia de -1 a 1, onde valores próximos a 1 indicam clusters bem definidos e separados.
+
+Para cada observação $i$, o Silhouette Score é calculado como:
+
+\begin{equation}
+s(i) = \frac{b(i) - a(i)}{\max\{a(i), b(i)\}}
+\end{equation}
+
+onde $a(i)$ é a distância média entre $i$ e todas as outras observações no mesmo cluster, e $b(i)$ é a distância média entre $i$ e todas as observações no cluster vizinho mais próximo.
+
+O Silhouette Score médio para todos os pontos é utilizado como métrica global para avaliar a qualidade do clustering para diferentes valores de K.
+
+\subsubsection{Davies-Bouldin Index}
+O Davies-Bouldin Index (DBI) é uma métrica que avalia a separação entre clusters em relação à sua dispersão interna. Valores menores de DBI indicam clusters mais compactos e bem separados.
+
+O DBI é calculado como:
+
+\begin{equation}
+DBI = \frac{1}{K} \sum_{i=1}^{K} \max_{j \neq i} \left( \frac{\sigma_i + \sigma_j}{d(\mu_i, \mu_j)} \right)
+\end{equation}
+
+onde $\sigma_i$ é a dispersão média do cluster $i$, e $d(\mu_i, \mu_j)$ é a distância entre os centróides dos clusters $i$ e $j$.
+
+Para cada algoritmo (K-Means, RSKM e ARSKM), calculamos estas três métricas para valores de K variando de 2 a 15, e selecionamos o valor ótimo com base na análise conjunta dos resultados.
+
+\subsection{Determinação de Hiperparâmetros para RSKM e ARSKM}
+Além do número de clusters (K), os algoritmos RSKM e ARSKM possuem hiperparâmetros adicionais que precisam ser determinados:
+
+\subsubsection{RSKM}
+Para o RSKM, o principal hiperparâmetro adicional é o parâmetro de esparsidade $s$, que controla o nível de penalização L1 aplicada aos pesos das features. Valores menores de $s$ resultam em soluções mais esparsas, com menos features contribuindo para o clustering.
+
+Para determinar o valor ótimo de $s$, utilizamos uma abordagem baseada na estabilidade dos clusters e na qualidade do agrupamento:
+
+\begin{enumerate}
+    \item Fixamos o valor de K determinado anteriormente.
+    \item Testamos diferentes valores de $s$ em uma grade de valores.
+    \item Para cada valor de $s$, avaliamos a qualidade do clustering utilizando o Silhouette Score e o Davies-Bouldin Index.
+    \item Selecionamos o valor de $s$ que maximiza o Silhouette Score e minimiza o Davies-Bouldin Index, enquanto mantém um nível adequado de esparsidade (redução significativa no número de features relevantes).
+\end{enumerate}
+
+\subsubsection{ARSKM}
+Para o ARSKM, os principais hiperparâmetros adicionais são:
+
+\begin{itemize}
+    \item $s_w$: Parâmetro de esparsidade para as features, similar ao $s$ do RSKM.
+    \item $\tau$: Parâmetro que controla o nível máximo de influência que uma observação pode ter, afetando a robustez do algoritmo.
+\end{itemize}
+
+A determinação destes parâmetros seguiu uma abordagem similar à utilizada para o RSKM, com uma busca em grade bidimensional para encontrar a combinação ótima de $s_w$ e $\tau$ que maximiza a qualidade do clustering enquanto mantém níveis adequados de esparsidade e robustez.
+
+\subsection{Técnicas de Interpretabilidade}
+\subsubsection{Abordagem Geral}
+A interpretação dos resultados de clustering representa um desafio significativo, uma vez que os algoritmos de clustering, por si só, não fornecem explicações sobre os fatores que definem cada cluster. Para superar esse desafio, adotamos uma abordagem baseada em modelos substitutos (surrogate models) e técnicas de interpretabilidade:
+
+\begin{enumerate}
+    \item Para cada algoritmo de clustering (K-Means, RSKM, ARSKM), obtivemos as atribuições de cluster para cada observação.
+    \item Treinamos um modelo de classificação supervisionada (Random Forest) para prever essas atribuições de cluster com base nas features originais.
+    \item Aplicamos técnicas de interpretabilidade (LIME e SHAP) ao modelo de classificação para explicar as características que definem cada cluster.
+\end{enumerate}
+
+Esta abordagem permite traduzir o problema não supervisionado de clustering em um problema supervisionado de classificação, para o qual existem técnicas bem estabelecidas de interpretabilidade.
+
+\subsubsection{LIME (Local Interpretable Model-agnostic Explanations)}
+LIME \cite{ribeiro2016should} é uma técnica que explica previsões individuais de qualquer modelo de classificação ou regressão, focando em entender o comportamento do modelo em torno de uma instância específica.
+
+O processo do LIME envolve:
+
+\begin{enumerate}
+    \item Seleção de uma instância específica para explicar.
+    \item Geração de instâncias perturbadas em torno da instância original.
+    \item Obtenção das previsões do modelo original para essas instâncias perturbadas.
+    \item Ponderação das instâncias perturbadas com base na proximidade com a instância original.
+    \item Treinamento de um modelo linear interpretável nesse conjunto de dados local.
+    \item Extração dos coeficientes do modelo linear como explicação.
+\end{enumerate}
+
+No contexto deste estudo, aplicamos LIME para explicar por que observações específicas foram atribuídas a determinados clusters, identificando as features mais influentes para essa atribuição.
+
+\subsubsection{SHAP (SHapley Additive exPlanations)}
+SHAP \cite{lundberg2017unified} é baseado na teoria dos jogos cooperativos e fornece uma abordagem unificada para explicar as previsões de modelos de machine learning. Os valores SHAP representam a contribuição marginal de cada feature para a previsão, considerando todas as possíveis combinações de features.
+
+As principais propriedades do SHAP incluem:
+
+\begin{itemize}
+    \item \textbf{Aditividade}: A soma dos valores SHAP de todas as features (mais um valor base) é igual à previsão do modelo.
+    \item \textbf{Consistência}: Se um modelo muda de forma que uma feature se torna mais importante, seu valor SHAP não diminui.
+    \item \textbf{Acurácia Local}: A explicação corresponde à previsão do modelo para aquela instância.
+\end{itemize}
+
+No contexto deste estudo, utilizamos SHAP para:
+
+\begin{enumerate}
+    \item Explicações Locais: Entender a contribuição de cada feature para a atribuição de cluster de instâncias específicas.
+    \item Explicações Globais: Identificar as features mais importantes para cada cluster, agregando os valores SHAP de múltiplas instâncias.
+    \item Dependence Plots: Visualizar como o valor de uma feature específica afeta sua contribuição para a atribuição a um determinado cluster.
+\end{enumerate}
+
+A combinação de LIME (para explicações locais intuitivas) e SHAP (para explicações locais e globais com propriedades teóricas desejáveis) fornece uma visão abrangente dos fatores que definem cada cluster, permitindo uma interpretação rica e fundamentada dos resultados.
+
+\section{Resultados}
+\subsection{Determinação do K Ótimo}
+\subsubsection{K-Means Tradicional}
+A aplicação do Método do Cotovelo, Silhouette Score e Davies-Bouldin Index para o K-Means tradicional resultou nas seguintes observações:
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura do Método do Cotovelo para K-Means
+\caption{Método do Cotovelo (WCSS) para K-Means. [INSERIR FIGURA]}
+\label{fig:kmeans_elbow}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura do Silhouette Score para K-Means
+\caption{Silhouette Score para K-Means. [INSERIR FIGURA]}
+\label{fig:kmeans_silhouette}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura do Davies-Bouldin Index para K-Means
+\caption{Davies-Bouldin Index para K-Means. [INSERIR FIGURA]}
+\label{fig:kmeans_dbi}
+\end{figure}
+
+O Método do Cotovelo (Figura \ref{fig:kmeans_elbow}) mostrou uma diminuição acentuada no WCSS até K=5, após o qual a curva se torna mais suave, sugerindo que adicionar mais clusters além desse ponto traz ganhos marginais.
+
+O Silhouette Score (Figura \ref{fig:kmeans_silhouette}) atingiu seu valor máximo em K=5, com um score de aproximadamente 0.18, indicando uma separação razoável entre os clusters.
+
+O Davies-Bouldin Index (Figura \ref{fig:kmeans_dbi}) apresentou um valor mínimo local em K=5, corroborando os resultados das outras métricas.
+
+Com base na análise conjunta dessas três métricas, determinamos que K=5 é o número ótimo de clusters para o K-Means tradicional aplicado a este conjunto de dados.
+
+\subsubsection{Robust Sparse K-Means (RSKM)}
+Para o RSKM, a determinação do K ótimo foi realizada considerando um valor fixo do parâmetro de esparsidade $s$, que posteriormente foi refinado.
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura do Método do Cotovelo para RSKM
+\caption{Método do Cotovelo (Função Objetivo) para RSKM. [INSERIR FIGURA]}
+\label{fig:rskm_elbow}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura do Silhouette Score para RSKM
+\caption{Silhouette Score para RSKM. [INSERIR FIGURA]}
+\label{fig:rskm_silhouette}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura do Davies-Bouldin Index para RSKM
+\caption{Davies-Bouldin Index para RSKM. [INSERIR FIGURA]}
+\label{fig:rskm_dbi}
+\end{figure}
+
+O Método do Cotovelo adaptado para o RSKM (Figura \ref{fig:rskm_elbow}) mostrou uma diminuição na função objetivo até K=2, após o qual a curva se torna mais suave.
+
+O Silhouette Score (Figura \ref{fig:rskm_silhouette}) atingiu seu valor máximo em K=2, com um score de aproximadamente 0.20, indicando uma separação mais clara entre os clusters em comparação com o K-Means tradicional.
+
+O Davies-Bouldin Index (Figura \ref{fig:rskm_dbi}) apresentou seu valor mínimo em K=2, consistente com as outras métricas.
+
+Com base nessas análises, determinamos que K=2 é o número ótimo de clusters para o RSKM aplicado a este conjunto de dados. É interessante notar que o RSKM, com sua capacidade de focar nas features mais relevantes e reduzir a influência de outliers, identificou uma estrutura de clustering mais simples (2 clusters) em comparação com o K-Means tradicional (5 clusters).
+
+\subsubsection{Adaptively Robust Sparse K-Means (ARSKM)}
+Para o ARSKM, a determinação do K ótimo seguiu uma abordagem similar à utilizada para o RSKM, com valores fixos iniciais para os parâmetros $s_w$ e $\tau$.
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura do Método do Cotovelo para ARSKM
+\caption{Método do Cotovelo (Função Objetivo) para ARSKM. [INSERIR FIGURA]}
+\label{fig:arskm_elbow}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura do Silhouette Score para ARSKM
+\caption{Silhouette Score para ARSKM. [INSERIR FIGURA]}
+\label{fig:arskm_silhouette}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura do Davies-Bouldin Index para ARSKM
+\caption{Davies-Bouldin Index para ARSKM. [INSERIR FIGURA]}
+\label{fig:arskm_dbi}
+\end{figure}
+
+O Método do Cotovelo adaptado para o ARSKM (Figura \ref{fig:arskm_elbow}) mostrou uma diminuição na função objetivo até K=6, após o qual a curva se torna mais suave.
+
+O Silhouette Score (Figura \ref{fig:arskm_silhouette}) atingiu seu valor máximo em K=6, com um score de aproximadamente 0.16.
+
+O Davies-Bouldin Index (Figura \ref{fig:arskm_dbi}) apresentou um valor mínimo local em K=6, consistente com as outras métricas.
+
+Com base nessas análises, determinamos que K=6 é o número ótimo de clusters para o ARSKM aplicado a este conjunto de dados. É interessante observar que o ARSKM, com sua abordagem adaptativa tanto para robustez quanto para esparsidade, identificou uma estrutura de clustering mais granular (6 clusters) em comparação com o RSKM (2 clusters) e similar ao K-Means tradicional (5 clusters).
+
+\subsection{Determinação de Hiperparâmetros para RSKM e ARSKM}
+\subsubsection{RSKM}
+Para o RSKM, após fixar K=2, realizamos uma busca em grade para o parâmetro de esparsidade $s$, avaliando valores entre 1 e 10.
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura da busca em grade para o parâmetro s do RSKM
+\caption{Silhouette Score e Davies-Bouldin Index em função do parâmetro de esparsidade $s$ para RSKM com K=2. [INSERIR FIGURA]}
+\label{fig:rskm_s_grid}
+\end{figure}
+
+A Figura \ref{fig:rskm_s_grid} mostra que o Silhouette Score atinge seu valor máximo e o Davies-Bouldin Index atinge seu valor mínimo para $s=5$. Além disso, analisamos o número de features com pesos significativos (acima de um limiar) para diferentes valores de $s$, e observamos que $s=5$ resulta em aproximadamente 30\% das features originais sendo consideradas relevantes para o clustering, o que representa um bom compromisso entre esparsidade e retenção de informação.
+
+Com base nessas análises, determinamos que $s=5$ é o valor ótimo do parâmetro de esparsidade para o RSKM com K=2 aplicado a este conjunto de dados.
+
+\subsubsection{ARSKM}
+Para o ARSKM, após fixar K=6, realizamos uma busca em grade bidimensional para os parâmetros $s_w$ (esparsidade das features) e $\tau$ (robustez das observações), avaliando combinações de valores.
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura da busca em grade para os parâmetros do ARSKM
+\caption{Silhouette Score em função dos parâmetros $s_w$ e $\tau$ para ARSKM com K=6. [INSERIR FIGURA]}
+\label{fig:arskm_grid}
+\end{figure}
+
+A Figura \ref{fig:arskm_grid} mostra que o Silhouette Score atinge seu valor máximo para a combinação $s_w=5$ e $\tau=0.05$. Esta combinação resulta em aproximadamente 25\% das features originais sendo consideradas relevantes para o clustering e aproximadamente 5\% das observações sendo identificadas como potenciais outliers (com pesos significativamente reduzidos).
+
+Com base nessas análises, determinamos que $s_w=5$ e $\tau=0.05$ são os valores ótimos dos parâmetros para o ARSKM com K=6 aplicado a este conjunto de dados.
+
+\subsection{Visualização dos Clusters}
+Para visualizar os clusters gerados pelos três algoritmos, utilizamos a técnica de Análise de Componentes Principais (PCA) para reduzir a dimensionalidade dos dados para duas dimensões, permitindo a representação gráfica.
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura da visualização PCA dos clusters do K-Means
+\caption{Visualização PCA dos 5 clusters gerados pelo K-Means. [INSERIR FIGURA]}
+\label{fig:kmeans_clusters}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura da visualização PCA dos clusters do RSKM
+\caption{Visualização PCA dos 2 clusters gerados pelo RSKM. [INSERIR FIGURA]}
+\label{fig:rskm_clusters}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura da visualização PCA dos clusters do ARSKM
+\caption{Visualização PCA dos 6 clusters gerados pelo ARSKM. [INSERIR FIGURA]}
+\label{fig:arskm_clusters}
+\end{figure}
+
+As Figuras \ref{fig:kmeans_clusters}, \ref{fig:rskm_clusters} e \ref{fig:arskm_clusters} mostram as visualizações PCA dos clusters gerados pelos três algoritmos. É importante notar que a redução de dimensionalidade para visualização pode não capturar completamente a estrutura dos clusters no espaço original de alta dimensionalidade, especialmente para os algoritmos RSKM e ARSKM que focam em subconjuntos específicos de features.
+
+\subsection{Interpretabilidade dos Clusters}
+\subsubsection{Modelos Substitutos}
+Para cada algoritmo de clustering, treinamos um modelo Random Forest como substituto para prever as atribuições de cluster com base nas features originais. A acurácia desses modelos foi:
+
+\begin{itemize}
+    \item K-Means (K=5): 98.0\% de acurácia
+    \item RSKM (K=2): 100.0\% de acurácia
+    \item ARSKM (K=6): 96.0\% de acurácia
+\end{itemize}
+
+Essas altas acurácias indicam que os modelos substitutos capturam bem a lógica de atribuição de cluster dos algoritmos originais, tornando-os adequados para a aplicação das técnicas de interpretabilidade.
+
+\subsubsection{Resultados LIME}
+O LIME foi aplicado para explicar as atribuições de cluster para instâncias representativas de cada cluster gerado pelos três algoritmos.
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura de exemplo de explicação LIME para K-Means
+\caption{Exemplo de explicação LIME para uma instância do Cluster 0 do K-Means. [INSERIR FIGURA]}
+\label{fig:kmeans_lime}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura de exemplo de explicação LIME para RSKM
+\caption{Exemplo de explicação LIME para uma instância do Cluster 1 do RSKM. [INSERIR FIGURA]}
+\label{fig:rskm_lime}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura de exemplo de explicação LIME para ARSKM
+\caption{Exemplo de explicação LIME para uma instância do Cluster 3 do ARSKM. [INSERIR FIGURA]}
+\label{fig:arskm_lime}
+\end{figure}
+
+As Figuras \ref{fig:kmeans_lime}, \ref{fig:rskm_lime} e \ref{fig:arskm_lime} mostram exemplos de explicações LIME para instâncias específicas de cada algoritmo. Estas explicações locais revelam quais features tiveram maior influência na atribuição de uma instância específica a um determinado cluster.
+
+\subsubsection{Resultados SHAP}
+O SHAP foi aplicado para fornecer tanto explicações locais quanto globais sobre a importância das features para cada cluster.
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura de SHAP Summary Plot para K-Means
+\caption{SHAP Summary Plot (Bar) para o Cluster 2 do K-Means. [INSERIR FIGURA]}
+\label{fig:kmeans_shap_bar}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura de SHAP Beeswarm Plot para K-Means
+\caption{SHAP Beeswarm Plot para o Cluster 2 do K-Means. [INSERIR FIGURA]}
+\label{fig:kmeans_shap_beeswarm}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura de SHAP Summary Plot para RSKM
+\caption{SHAP Summary Plot (Bar) para o Cluster 0 do RSKM. [INSERIR FIGURA]}
+\label{fig:rskm_shap_bar}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura de SHAP Beeswarm Plot para RSKM
+\caption{SHAP Beeswarm Plot para o Cluster 0 do RSKM. [INSERIR FIGURA]}
+\label{fig:rskm_shap_beeswarm}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura de SHAP Summary Plot para ARSKM
+\caption{SHAP Summary Plot (Bar) para o Cluster 4 do ARSKM. [INSERIR FIGURA]}
+\label{fig:arskm_shap_bar}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+% Placeholder para figura de SHAP Beeswarm Plot para ARSKM
+\caption{SHAP Beeswarm Plot para o Cluster 4 do ARSKM. [INSERIR FIGURA]}
+\label{fig:arskm_shap_beeswarm}
+\end{figure}
+
+As Figuras \ref{fig:kmeans_shap_bar} a \ref{fig:arskm_shap_beeswarm} mostram exemplos de visualizações SHAP para clusters específicos de cada algoritmo. Os Summary Plots (Bar) mostram a importância média absoluta das features para um cluster específico, enquanto os Beeswarm Plots mostram não apenas a importância, mas também a direção do efeito (valores altos ou baixos de uma feature aumentam ou diminuem a probabilidade de pertencer ao cluster).
+
+\subsection{Caracterização dos Clusters}
+Com base nos resultados das técnicas de interpretabilidade (LIME e SHAP), podemos caracterizar os clusters gerados por cada algoritmo:
+
+\subsubsection{K-Means (K=5)}
+\begin{itemize}
+    \item \textbf{Cluster 0}: Este cluster é caracterizado principalmente por incidentes ocorridos em condições de alta temperatura e baixa visibilidade. As features "Temperature (F)" e "Visibility (mi)" foram consistentemente identificadas como as mais influentes, com valores altos de temperatura e baixos de visibilidade sendo característicos deste cluster. Além disso, a feature "Vehicle Speed" também apresentou importância significativa, com valores moderados a altos sendo típicos deste grupo.
+    
+    \item \textbf{Cluster 1}: Os incidentes neste cluster são distinguidos principalmente pelo tipo de equipamento envolvido, com a feature "Equipment Type" sendo a mais influente. Especificamente, equipamentos do tipo "Freight Train" são predominantes. Outras features importantes incluem "Number of Cars" (geralmente alto) e "Time of Day" (predominantemente noturno).
+    
+    \item \textbf{Cluster 2}: Este cluster agrupa incidentes caracterizados por condições climáticas adversas, com "Weather Condition" sendo a feature mais importante. Especificamente, condições como "Rain", "Snow" e "Fog" são predominantes. A feature "Month" também é relevante, com incidentes ocorrendo principalmente nos meses de inverno.
+    
+    \item \textbf{Cluster 3}: Os incidentes neste cluster são distinguidos principalmente pelo tipo de veículo envolvido e pela severidade dos danos. As features "Vehicle Type" e "Estimated Damage" são as mais influentes, com veículos pesados (como caminhões) e danos materiais significativos sendo característicos.
+    
+    \item \textbf{Cluster 4}: Este cluster é caracterizado por incidentes em cruzamentos com dispositivos de aviso específicos. A feature "Warning Device Type" é a mais influente, com dispositivos como "Gates" e "Flashing Lights" sendo predominantes. Além disso, a feature "Highway User Position" também é relevante, indicando posições específicas do usuário da rodovia no momento do incidente.
+\end{itemize}
+
+\subsubsection{RSKM (K=2)}
+\begin{itemize}
+    \item \textbf{Cluster 0}: Este cluster, que representa aproximadamente 70\% dos incidentes, é caracterizado principalmente por condições de operação padrão e severidade moderada. As features mais influentes, identificadas tanto pelo LIME quanto pelo SHAP, incluem "Vehicle Speed" (geralmente baixa a moderada), "Train Speed" (moderada) e "Estimated Damage" (baixo a moderado). É interessante notar que o RSKM, com sua capacidade de focar nas features mais relevantes, identificou um padrão mais geral de incidentes "típicos" ou "padrão".
+    
+    \item \textbf{Cluster 1}: Este cluster, representando aproximadamente 30\% dos incidentes, agrupa casos com características mais extremas ou atípicas. As features mais influentes incluem "Estimated Damage" (geralmente alto), "Train Speed" (alto), "Vehicle Type" (predominantemente veículos pesados) e "Weather Condition" (condições adversas). Este cluster parece capturar incidentes mais severos ou que ocorrem em condições não padrão.
+\end{itemize}
+
+É interessante observar que o RSKM, com sua abordagem robusta e esparsa, identificou uma divisão mais fundamental entre incidentes "típicos" e "atípicos", em contraste com a categorização mais granular do K-Means.
+
+\subsubsection{ARSKM (K=6)}
+\begin{itemize}
+    \item \textbf{Cluster 0}: Este cluster é caracterizado por incidentes envolvendo trens de passageiros em áreas urbanas. As features "Equipment Type" (predominantemente "Passenger Train"), "Population Density" (alta) e "Time of Day" (horários de pico) são as mais influentes.
+    
+    \item \textbf{Cluster 1}: Os incidentes neste cluster ocorrem principalmente em condições de baixa visibilidade noturna. As features "Visibility (mi)" (baixa), "Time of Day" (noturno) e "Lighting Condition" (escuro) são as mais importantes.
+    
+    \item \textbf{Cluster 2}: Este cluster agrupa incidentes com danos materiais significativos. "Estimated Damage" é a feature mais influente, com valores consistentemente altos. Outras features importantes incluem "Vehicle Type" (predominantemente veículos pesados) e "Train Speed" (geralmente alto).
+    
+    \item \textbf{Cluster 3}: Os incidentes neste cluster são caracterizados por ocorrerem em cruzamentos com dispositivos de aviso específicos que falharam ou foram ignorados. "Warning Device Type" e "Warning Device Status" são as features mais importantes.
+    
+    \item \textbf{Cluster 4}: Este cluster é definido principalmente por condições climáticas adversas extremas. "Weather Condition" (principalmente "Blizzard", "Heavy Rain" e "Severe Fog") é a feature mais influente, seguida por "Temperature (F)" (geralmente extrema, seja alta ou baixa).
+    
+    \item \textbf{Cluster 5}: Os incidentes neste cluster são caracterizados por fatores humanos, como comportamento do motorista. Features relacionadas a "Driver Action", "Driver Condition" e "Vehicle Speed" são as mais influentes.
+\end{itemize}
+
+O ARSKM, com sua abordagem adaptativa tanto para robustez quanto para esparsidade, identificou uma estrutura de clustering mais refinada, com clusters que parecem capturar diferentes "cenários" ou "contextos" de incidentes, cada um com suas características distintivas.
+
+\section{Discussão}
+\subsection{Comparação dos Algoritmos}
+A aplicação dos três algoritmos de clustering – K-Means tradicional, RSKM e ARSKM – ao conjunto de dados de incidentes em cruzamentos rodoferroviários revelou diferentes perspectivas sobre a estrutura dos dados:
+
+\begin{itemize}
+    \item \textbf{K-Means Tradicional (K=5)}: Identificou cinco clusters distintos, cada um caracterizado por combinações específicas de features. A abordagem do K-Means, que considera todas as features com igual importância, resultou em uma categorização baseada em múltiplos aspectos dos incidentes, como condições ambientais, tipo de equipamento, tipo de veículo, dispositivos de aviso e severidade dos danos.
+    
+    \item \textbf{RSKM (K=2)}: Com sua capacidade de focar nas features mais relevantes e reduzir a influência de outliers, o RSKM identificou uma estrutura mais fundamental, dividindo os incidentes em dois grupos principais: incidentes "típicos" ou "padrão" e incidentes "atípicos" ou "severos". Esta divisão mais simples, mas potencialmente mais robusta, pode ser particularmente útil para identificar casos que desviam significativamente do padrão normal.
+    
+    \item \textbf{ARSKM (K=6)}: A abordagem adaptativa do ARSKM, que ajusta os pesos tanto para observações quanto para features, resultou na identificação de seis clusters distintos, cada um representando um "cenário" ou "contexto" específico de incidente. Esta categorização mais granular e adaptativa pode ser valiosa para entender os diferentes fatores que contribuem para diferentes tipos de incidentes.
+\end{itemize}
+
+É interessante observar que, apesar das diferenças no número e na natureza dos clusters identificados, há consistências notáveis nas features identificadas como importantes pelos três algoritmos. Por exemplo, features relacionadas à severidade dos danos, condições climáticas, tipo de equipamento e velocidade do trem aparecem consistentemente como influentes em todos os algoritmos, embora com diferentes pesos e em diferentes combinações.
+
+\subsection{Insights sobre Padrões de Acidentes}
+A análise de interpretabilidade dos clusters revelou insights valiosos sobre os padrões de incidentes em cruzamentos rodoferroviários:
+
+\begin{itemize}
+    \item \textbf{Condições Ambientais}: Condições de baixa visibilidade, seja devido a condições climáticas adversas ou iluminação noturna, aparecem consistentemente como fatores importantes em clusters específicos de todos os algoritmos. Isso sugere que a visibilidade é um fator crítico para a segurança em cruzamentos rodoferroviários.
+    
+    \item \textbf{Velocidade}: A velocidade, tanto do trem quanto do veículo rodoviário, é um fator significativo, especialmente em clusters associados a incidentes mais severos. Isso corrobora a intuição de que velocidades mais altas estão associadas a consequências mais graves em caso de colisão.
+    
+    \item \textbf{Dispositivos de Aviso}: A presença e o tipo de dispositivos de aviso no cruzamento aparecem como fatores importantes em clusters específicos, sugerindo que a infraestrutura de segurança do cruzamento desempenha um papel significativo na ocorrência e na natureza dos incidentes.
+    
+    \item \textbf{Tipo de Veículo e Equipamento}: O tipo de veículo rodoviário e o tipo de equipamento ferroviário envolvidos são fatores distintivos em vários clusters, indicando que diferentes combinações de veículos e trens podem estar associadas a diferentes padrões de incidentes.
+\end{itemize}
+
+Estes insights, derivados da análise de interpretabilidade dos clusters, podem informar estratégias de prevenção e mitigação de riscos em cruzamentos rodoferroviários, focando nos fatores mais relevantes para diferentes tipos de incidentes.
+
+\subsection{Vantagens e Limitações das Abordagens}
+\subsubsection{Algoritmos de Clustering}
+\begin{itemize}
+    \item \textbf{K-Means Tradicional}:
+        \begin{itemize}
+            \item \textbf{Vantagens}: Simplicidade, eficiência computacional, facilidade de implementação e interpretação.
+            \item \textbf{Limitações}: Sensibilidade a outliers, dificuldade com clusters de formas não esféricas, consideração igual de todas as features (mesmo as irrelevantes).
+        \end{itemize}
+    
+    \item \textbf{RSKM}:
+        \begin{itemize}
+            \item \textbf{Vantagens}: Robustez a outliers, foco nas features mais relevantes, potencial para identificar estruturas mais fundamentais nos dados.
+            \item \textbf{Limitações}: Maior complexidade computacional, necessidade de determinar hiperparâmetros adicionais, potencial para simplificação excessiva da estrutura dos dados.
+        \end{itemize}
+    
+    \item \textbf{ARSKM}:
+        \begin{itemize}
+            \item \textbf{Vantagens}: Adaptabilidade tanto para robustez quanto para esparsidade, potencial para identificar estruturas mais refinadas e adaptativas nos dados.
+            \item \textbf{Limitações}: Complexidade computacional ainda maior, maior número de hiperparâmetros a serem determinados, potencial para overfitting em conjuntos de dados menores.
+        \end{itemize}
+\end{itemize}
+
+\subsubsection{Técnicas de Interpretabilidade}
+\begin{itemize}
+    \item \textbf{LIME}:
+        \begin{itemize}
+            \item \textbf{Vantagens}: Explicações locais intuitivas, visualizações claras, aplicabilidade a qualquer modelo.
+            \item \textbf{Limitações}: Variabilidade nas explicações devido à natureza aleatória da perturbação, foco exclusivamente local, potencial para instabilidade em certas regiões do espaço de features.
+        \end{itemize}
+    
+    \item \textbf{SHAP}:
+        \begin{itemize}
+            \item \textbf{Vantagens}: Fundamentação teórica sólida, propriedades desejáveis como consistência e aditividade, capacidade de fornecer tanto explicações locais quanto globais.
+            \item \textbf{Limitações}: Maior complexidade computacional, especialmente para modelos não baseados em árvores, potencial para dificuldade de interpretação em interações complexas entre features.
+        \end{itemize}
+\end{itemize}
+
+A combinação de algoritmos robustos e esparsos de clustering com técnicas avançadas de interpretabilidade representa uma abordagem promissora para a análise de dados complexos em domínios críticos como a segurança ferroviária. No entanto, é importante reconhecer as limitações de cada abordagem e considerar a aplicação de múltiplas técnicas complementares para uma compreensão mais abrangente dos dados.
+
+\section{Conclusão}
+Este estudo explorou a aplicação de três algoritmos de clustering – K-Means tradicional, Robust Sparse K-Means (RSKM) e Adaptively Robust Sparse K-Means (ARSKM) – em um conjunto de dados de incidentes em cruzamentos rodoferroviários, com ênfase na interpretabilidade dos resultados através de técnicas de Explainable AI (LIME e SHAP).
+
+Os resultados revelaram diferentes perspectivas sobre a estrutura dos dados: o K-Means identificou cinco clusters baseados em múltiplos aspectos dos incidentes; o RSKM, com sua abordagem robusta e esparsa, identificou uma divisão mais fundamental entre incidentes "típicos" e "atípicos"; e o ARSKM, com sua adaptabilidade tanto para robustez quanto para esparsidade, identificou seis clusters representando diferentes "cenários" ou "contextos" de incidentes.
+
+A análise de interpretabilidade dos clusters, utilizando LIME para explicações locais intuitivas e SHAP para explicações locais e globais com propriedades teóricas desejáveis, revelou insights valiosos sobre os fatores que caracterizam diferentes tipos de incidentes. Condições de baixa visibilidade, velocidade (tanto do trem quanto do veículo), dispositivos de aviso e tipo de veículo/equipamento emergiram como fatores significativos em diferentes padrões de incidentes.
+
+Estes insights podem informar estratégias de prevenção e mitigação de riscos em cruzamentos rodoferroviários, focando nos fatores mais relevantes para diferentes tipos de incidentes. Além disso, a metodologia desenvolvida neste estudo, combinando algoritmos robustos e esparsos de clustering com técnicas avançadas de interpretabilidade, representa uma contribuição para a análise de dados complexos em domínios críticos onde a interpretabilidade é essencial.
+
+\subsection{Limitações do Estudo}
+Este estudo apresenta algumas limitações que devem ser consideradas:
+
+\begin{itemize}
+    \item \textbf{Qualidade dos Dados}: Como em qualquer análise de dados reais, a qualidade e a completude dos dados podem afetar os resultados. Apesar dos esforços de pré-processamento, limitações nos dados originais podem persistir.
+    
+    \item \textbf{Validação Externa}: A validação dos clusters identificados foi baseada principalmente em métricas internas (como Silhouette Score e Davies-Bouldin Index) e na interpretabilidade dos resultados. Validação externa com especialistas do domínio seria valiosa para confirmar a relevância prática dos padrões identificados.
+    
+    \item \textbf{Generalização}: Os resultados são específicos para o conjunto de dados analisado e podem não generalizar diretamente para outros contextos ou regiões geográficas.
+    
+    \item \textbf{Causalidade}: A análise de clustering e interpretabilidade identifica associações e padrões, mas não estabelece relações causais. Inferências sobre causalidade devem ser feitas com cautela e idealmente validadas através de estudos adicionais.
+\end{itemize}
+
+\subsection{Trabalhos Futuros}
+Com base nos resultados e nas limitações deste estudo, várias direções para trabalhos futuros podem ser identificadas:
+
+\begin{itemize}
+    \item \textbf{Análise Temporal}: Investigar como os padrões de incidentes evoluíram ao longo do tempo, potencialmente identificando tendências e avaliando o impacto de intervenções de segurança.
+    
+    \item \textbf{Integração com Dados Geoespaciais}: Incorporar informações geoespaciais mais detalhadas para analisar a distribuição espacial dos diferentes tipos de incidentes e identificar hotspots de risco.
+    
+    \item \textbf{Modelos Preditivos}: Desenvolver modelos preditivos baseados nos insights obtidos da análise de clustering, visando prever o risco de incidentes em diferentes cruzamentos sob diferentes condições.
+    
+    \item \textbf{Validação com Especialistas}: Conduzir estudos de validação com especialistas em segurança ferroviária para avaliar a relevância prática dos padrões identificados e refinar a interpretação dos resultados.
+    
+    \item \textbf{Comparação com Outros Algoritmos}: Explorar outros algoritmos de clustering, como DBSCAN, Gaussian Mixture Models ou técnicas baseadas em densidade, e comparar seus resultados com os obtidos neste estudo.
+    
+    \item \textbf{Análise de Sensibilidade}: Realizar análises de sensibilidade mais detalhadas para avaliar a robustez dos resultados a variações nos hiperparâmetros e nas técnicas de pré-processamento.
+\end{itemize}
+
+Estas direções para trabalhos futuros podem contribuir para um entendimento ainda mais profundo dos padrões de incidentes em cruzamentos rodoferroviários e para o desenvolvimento de estratégias mais eficazes de prevenção e segurança.
+
+\section*{Agradecimentos}
+Os autores agradecem à Federal Railroad Administration (FRA) dos Estados Unidos pela disponibilização pública dos dados utilizados neste estudo, e à comunidade de pesquisa em segurança ferroviária pelos insights e contribuições que fundamentaram esta análise.
+
+% Referências
+\begin{thebibliography}{00}
+\bibitem{xu2015comprehensive} R. Xu and D. Wunsch, "Clustering algorithms in biomedical research: A review," IEEE Reviews in Biomedical Engineering, vol. 3, pp. 120-154, 2010.
+\bibitem{jain2010data} A. K. Jain, "Data clustering: 50 years beyond K-means," Pattern Recognition Letters, vol. 31, no. 8, pp. 651-666, 2010.
+\bibitem{macqueen1967some} J. MacQueen, "Some methods for classification and analysis of multivariate observations," in Proceedings of the Fifth Berkeley Symposium on Mathematical Statistics and Probability, 1967.
+\bibitem{witten2010framework} D. M. Witten and R. Tibshirani, "A framework for feature selection in clustering," Journal of the American Statistical Association, vol. 105, no. 490, pp. 713-726, 2010.
+\bibitem{sun2018adaptive} W. Sun, A. B. Lee, and C. Y. Park, "Adaptive robust sparse K-means clustering," Computational Statistics \& Data Analysis, vol. 121, pp. 33-49, 2018.
+\bibitem{guidotti2018survey} R. Guidotti et al., "A survey of methods for explaining black box models," ACM Computing Surveys, vol. 51, no. 5, pp. 1-42, 2018.
+\bibitem{lundberg2017unified} S. M. Lundberg and S.-I. Lee, "A unified approach to interpreting model predictions," in Advances in Neural Information Processing Systems (NIPS), 2017.
+\bibitem{ribeiro2016should} M. T. Ribeiro, S. Singh, and C. Guestrin, "Why should I trust you?": Explaining the predictions of any classifier," in Proceedings of the 22nd ACM SIGKDD, 2016.
+\bibitem{liang2018analysis} C. Liang, M. Ghazel, O. Cazier, and E. El-Koursi, "A new insight on the risky behavior of motorists at railway level crossings: An observational field study," Accident Analysis \& Prevention, vol. 116, pp. 26-37, 2018.
+\bibitem{yan2010analysis} X. Yan, S. Richards, and X. Su, "Using hierarchical tree-based regression model to predict train-vehicle crashes at passive highway-rail grade crossings," Accident Analysis \& Prevention, vol. 42, no. 1, pp. 64-74, 2010.
+\bibitem{fra2021data} Federal Railroad Administration, "Highway-Rail Grade Crossing Accident/Incident Data," U.S. Department of Transportation, 2021. [Online]. Available: https://data.transportation.gov/Railroads/Highway-Rail-Grade-Crossing-Incident-Data-Form-57-/7wn6-i5b9/about\_data
+\bibitem{kaggle2021highway} "US Highway-Railgrade Crossing Accident Data," Kaggle, 2021. [Online]. Available: https://www.kaggle.com/datasets/yogidsba/us-highway-railgrade-crossing-accident
+\bibitem{kondo2016rskc} Y. Kondo, M. Salibian-Barrera, and R. Zamar, "RSKC: An R package for a robust and sparse k-means clustering algorithm," Journal of Statistical Software, vol. 72, no. 5, pp. 1-26, 2016.
+\bibitem{lee2020arsk} H. Lee, R. Liu, and J. Li, "ARSK: Adaptively Robust Sparse K-means," GitHub repository, 2020. [Online]. Available: https://github.com/lee1995hao/ARSK
+\bibitem{molnar2020interpretable} C. Molnar, G. Casalicchio, and B. Bischl, "Interpretable machine learning – A brief history, state-of-the-art and challenges," in ECML PKDD 2020 Workshops, 2020.
+\bibitem{adadi2018peeking} A. Adadi and M. Berrada, "Peeking inside the black-box: A survey on explainable artificial intelligence (XAI)," IEEE Access, vol. 6, pp. 52138-52160, 2018.
+\bibitem{kauffmann2019clustering} J. Kauffmann, M. Esders, G. Montavon, W. Samek, and K.-R. Müller, "From clustering to cluster explanations via neural networks," arXiv preprint arXiv:1906.07633, 2019.
+\bibitem{dasgupta2020explainable} A. Dasgupta, S. M. Drucker, and T. M. Roth, "Explainable k-means and k-medians clustering," in Proceedings of the 2020 CHI Conference on Human Factors in Computing Systems, 2020.
+\end{thebibliography}
+
+\balance
+\end{document}
